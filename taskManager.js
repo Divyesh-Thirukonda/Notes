@@ -484,6 +484,14 @@ function fetchCalendarData() {
 function processCalendarData(jsonData) {
   console.log(jsonData);
   const calendarContainer = document.querySelector('.calendar');
+  
+  // Preserve existing quote if it exists
+  let existingQuote = null;
+  const existingQuoteElem = calendarContainer.querySelector('.time-slot');
+  if (existingQuoteElem && existingQuoteElem.style.fontStyle === 'italic') {
+    existingQuote = existingQuoteElem.textContent;
+  }
+  
   calendarContainer.innerHTML = '';
   
   // Reset the day abbreviation variable for fresh rendering
@@ -491,7 +499,7 @@ function processCalendarData(jsonData) {
 
   var quote = document.createElement("div");
   quote.className = "time-slot";
-  quote.textContent = getRandomQuote();
+  quote.textContent = existingQuote || getRandomQuote(); // Use existing quote or generate new one
   quote.style.fontStyle = 'italic';
   calendarContainer.appendChild(quote);
 

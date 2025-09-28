@@ -982,6 +982,29 @@ for (i = 0; i < classes.length; i++) {
 */
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
 const poses = [
   'translateX(-50%) rotateX(-30deg) rotateY(-15deg) scale(1.8)',
   'translateX(50%) translateY(40%) rotateX(20deg) rotateY(10deg) scale(1.85)',
@@ -1061,3 +1084,5 @@ document.addEventListener('mousemove', () => {
 
 // Initial animation trigger
 timeout = setTimeout(moveElements, 30000);
+
+*/

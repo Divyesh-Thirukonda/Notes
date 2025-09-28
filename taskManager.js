@@ -385,77 +385,184 @@ function getDayAbbreviation(dayIndex) {
 
 var eventDayOfWeekAbbrv = "";
 
-var script = document.createElement('script');
-script.src = 'https://script.googleusercontent.com/macros/echo?user_content_key=vZ-y2tj9cqpRucX0Z0EQCR2QDhiBytjAXJhqwgLrO0U68yZyTeMvASUm7uToSUo5OR07rvityMppvq5JSkRj8wx06AV9OlsIm5_BxDlH2jW0nuo2oDemN9CCS2h10ox_1xSncGQajx_ryfhECjZEnN-m9i9IrPvUvHcQEm5QVkspIbs4W1RlL6BVtYbiWQL2XSC7W709wbCJFFZWN-UJtw91CeNAzs__MlZcHFAoI340AC4A1dKiFQ&lib=MNAePv3as6RmFFvUuXPX_fQ5P-Idvl_o1';
+// Calendar caching configuration
+const CALENDAR_CACHE_KEY = 'calendar_data_cache';
+const CALENDAR_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
-const urlCAL = script.src;
-fetch(urlCAL)
-  .then(response => response.json())
-  .then(jsonData => {
-    console.log(jsonData);
-    const calendarContainer = document.querySelector('.calendar');
-    calendarContainer.innerHTML = '';
-
-    var quote = document.createElement("div");
-    quote.className = "time-slot";
-    quote.textContent = getRandomQuote();
-    quote.style.fontStyle = 'italic';
-    calendarContainer.appendChild(quote);
-
-    var myCalCounter = 0;
-    for (var eventID in jsonData) {
-      if (myCalCounter==0) {
-        retNextTaskArduino = jsonData[eventID].title;
-      }
-      myCalCounter++;
-      var eventDetails = jsonData[eventID];
-      eventDayOfWeekRaw = new Date(eventDetails.startTime);
-
-      if (eventDayOfWeekAbbrv != getDayAbbreviation(eventDayOfWeekRaw.getDay())) {
-        var dayOfWeekElem = document.createElement("div");
-        dayOfWeekElem.className = "dayOfWeekName";
-        dayOfWeekElem.textContent = getDayAbbreviation(eventDayOfWeekRaw.getDay());
-        calendarContainer.appendChild(dayOfWeekElem);
-      }
-      eventDayOfWeekAbbrv = getDayAbbreviation(eventDayOfWeekRaw.getDay());
-
-      var timeSlotDiv = document.createElement("div");
-      timeSlotDiv.className = "time-slot";
-      timeSlotDiv.textContent = formatTimestamp(eventDetails.startTime, eventDetails.endTime);
-      var activityDiv = document.createElement("div");
-      activityDiv.className = "activity"
-      activityDiv.addEventListener('dblclick', () => {
-          window.location.href = 'https://calendar.google.com/calendar/u/0/r/week';
-      });
-      var verticalCapsuleDiv = document.createElement("div");
-      verticalCapsuleDiv.className = "vertical-capsule";
-
-
-      if (eventDetails.color === "") {
-        // Empty string, assume color 1
-        var colorClass = "color-1";
-        verticalCapsuleDiv.classList.add(colorClass);
-      } else {
-        // Non-empty string, use color based on the color number
-        var colorClass = "color-" + eventDetails.color;
-        verticalCapsuleDiv.classList.add(colorClass);
-      }
-
-      if (eventDetails.location != "") {
-        timeSlotDiv.textContent += " @ " + eventDetails.location;
-      }
-
-      calendarContainer.appendChild(timeSlotDiv);
-      activityDiv.appendChild(verticalCapsuleDiv);
-      activityDiv.appendChild(document.createTextNode(eventDetails.title));
-      calendarContainer.appendChild(activityDiv);
-
-      if (firstEventName === "") {
-        firstEventName = eventDetails.title;
-      }
+// Function to get cached calendar data (only if still valid)
+function getCachedCalendarData() {
+  try {
+    const cachedData = localStorage.getItem(CALENDAR_CACHE_KEY);
+    if (!cachedData) return null;
+    
+    const parsed = JSON.parse(cachedData);
+    const now = Date.now();
+    
+    // Check if cache is still valid
+    if (now - parsed.timestamp < CALENDAR_CACHE_DURATION) {
+      console.log('Using cached calendar data');
+      return parsed.data;
+    } else {
+      console.log('Calendar cache expired');
+      return null;
     }
-  })
-  .catch(error => console.error(`Failed to fetch data: ${error.message}`));
+  } catch (error) {
+    console.error('Error reading calendar cache:', error);
+    localStorage.removeItem(CALENDAR_CACHE_KEY);
+    return null;
+  }
+}
+
+// Function to get any cached calendar data (regardless of age)
+function getAnyCachedCalendarData() {
+  try {
+    const cachedData = localStorage.getItem(CALENDAR_CACHE_KEY);
+    if (!cachedData) return null;
+    
+    const parsed = JSON.parse(cachedData);
+    return parsed.data;
+  } catch (error) {
+    console.error('Error reading calendar cache:', error);
+    localStorage.removeItem(CALENDAR_CACHE_KEY);
+    return null;
+  }
+}
+
+// Function to cache calendar data
+function cacheCalendarData(data) {
+  try {
+    const cacheObject = {
+      data: data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(cacheObject));
+    console.log('Calendar data cached successfully');
+  } catch (error) {
+    console.error('Error caching calendar data:', error);
+  }
+}
+
+// Function to fetch calendar data with caching
+function fetchCalendarData() {
+  // First, immediately display cached data if available (regardless of age)
+  const anyCachedData = getAnyCachedCalendarData();
+  if (anyCachedData) {
+    console.log('Displaying cached calendar data immediately');
+    processCalendarData(anyCachedData);
+  }
+  
+  // Always fetch fresh data from API (regardless of cache status)
+  console.log('Fetching fresh calendar data from API');
+  var script = document.createElement('script');
+  script.src = 'https://script.googleusercontent.com/macros/echo?user_content_key=vZ-y2tj9cqpRucX0Z0EQCR2QDhiBytjAXJhqwgLrO0U68yZyTeMvASUm7uToSUo5OR07rvityMppvq5JSkRj8wx06AV9OlsIm5_BxDlH2jW0nuo2oDemN9CCS2h10ox_1xSncGQajx_ryfhECjZEnN-m9i9IrPvUvHcQEm5QVkspIbs4W1RlL6BVtYbiWQL2XSC7W709wbCJFFZWN-UJtw91CeNAzs__MlZcHFAoI340AC4A1dKiFQ&lib=MNAePv3as6RmFFvUuXPX_fQ5P-Idvl_o1';
+
+  const urlCAL = script.src;
+  fetch(urlCAL)
+    .then(response => response.json())
+    .then(jsonData => {
+      // Cache the fresh data
+      cacheCalendarData(jsonData);
+      // Update display with fresh data
+      console.log('Updating calendar with fresh data from API');
+      processCalendarData(jsonData);
+    })
+    .catch(error => {
+      console.error(`Failed to fetch calendar data: ${error.message}`);
+      // If we failed and don't have any cached data displayed, try stale cache
+      if (!anyCachedData) {
+        const staleCache = localStorage.getItem(CALENDAR_CACHE_KEY);
+        if (staleCache) {
+          console.log('Using stale cache data as fallback');
+          const parsed = JSON.parse(staleCache);
+          processCalendarData(parsed.data);
+        }
+      }
+    });
+}
+
+// Function to process calendar data (extracted from the original fetch logic)
+function processCalendarData(jsonData) {
+  console.log(jsonData);
+  const calendarContainer = document.querySelector('.calendar');
+  calendarContainer.innerHTML = '';
+  
+  // Reset the day abbreviation variable for fresh rendering
+  eventDayOfWeekAbbrv = "";
+
+  var quote = document.createElement("div");
+  quote.className = "time-slot";
+  quote.textContent = getRandomQuote();
+  quote.style.fontStyle = 'italic';
+  calendarContainer.appendChild(quote);
+
+  var myCalCounter = 0;
+  for (var eventID in jsonData) {
+    if (myCalCounter==0) {
+      retNextTaskArduino = jsonData[eventID].title;
+    }
+    myCalCounter++;
+    var eventDetails = jsonData[eventID];
+    eventDayOfWeekRaw = new Date(eventDetails.startTime);
+
+    if (eventDayOfWeekAbbrv != getDayAbbreviation(eventDayOfWeekRaw.getDay())) {
+      var dayOfWeekElem = document.createElement("div");
+      dayOfWeekElem.className = "dayOfWeekName";
+      dayOfWeekElem.textContent = getDayAbbreviation(eventDayOfWeekRaw.getDay());
+      calendarContainer.appendChild(dayOfWeekElem);
+    }
+    eventDayOfWeekAbbrv = getDayAbbreviation(eventDayOfWeekRaw.getDay());
+
+    var timeSlotDiv = document.createElement("div");
+    timeSlotDiv.className = "time-slot";
+    timeSlotDiv.textContent = formatTimestamp(eventDetails.startTime, eventDetails.endTime);
+    var activityDiv = document.createElement("div");
+    activityDiv.className = "activity"
+    activityDiv.addEventListener('dblclick', () => {
+        window.location.href = 'https://calendar.google.com/calendar/u/0/r/week';
+    });
+    var verticalCapsuleDiv = document.createElement("div");
+    verticalCapsuleDiv.className = "vertical-capsule";
+
+    if (eventDetails.color === "") {
+      // Empty string, assume color 1
+      var colorClass = "color-1";
+      verticalCapsuleDiv.classList.add(colorClass);
+    } else {
+      // Non-empty string, use color based on the color number
+      var colorClass = "color-" + eventDetails.color;
+      verticalCapsuleDiv.classList.add(colorClass);
+    }
+
+    if (eventDetails.location != "") {
+      timeSlotDiv.textContent += " @ " + eventDetails.location;
+    }
+
+    calendarContainer.appendChild(timeSlotDiv);
+    activityDiv.appendChild(verticalCapsuleDiv);
+    activityDiv.appendChild(document.createTextNode(eventDetails.title));
+    calendarContainer.appendChild(activityDiv);
+
+    if (firstEventName === "") {
+      firstEventName = eventDetails.title;
+    }
+  }
+}
+
+// Utility function to force refresh calendar data (clear cache and fetch new)
+function refreshCalendarData() {
+  localStorage.removeItem(CALENDAR_CACHE_KEY);
+  console.log('Calendar cache cleared, fetching fresh data');
+  fetchCalendarData();
+}
+
+// Utility function to clear calendar cache
+function clearCalendarCache() {
+  localStorage.removeItem(CALENDAR_CACHE_KEY);
+  console.log('Calendar cache cleared');
+}
+
+// Initialize calendar data fetch
+fetchCalendarData();
 
 
 
